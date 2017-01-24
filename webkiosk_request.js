@@ -3,13 +3,14 @@ var querystring = require('querystring');
 var restify = require('restify');
 var bodyParser=require('body-parser');
 var morgan=require('morgan');
+var cheerio = require('cheerio');
 var server = restify.createServer();
 
 server.use(bodyParser.urlencoded({extended:true}));
 server.use(bodyParser.json());
 server.use(morgan('dev'));
 
-var form = {
+var studentForm = {
   x: "",
   txtInst: "Institute",
   InstCode: "",
@@ -25,19 +26,19 @@ var cookieJar = request.jar();
 
 // function to login to webkiosk web app
 function webkioskLogin (enroll, password, institute, returnResponse, callback) {  
-  form.InstCode = institute;
-  form.MemberCode = enroll;
-  form.Password = password;
+  studentForm.InstCode = institute;
+  studentForm.MemberCode = enroll;
+  studentForm.Password = password;
 
-  var formData = querystring.stringify(form),
-      loginURL = 'https://webkiosk.jiit.ac.in/CommonFiles/UserAction.jsp?' + formData;
+  var studentFormData = querystring.stringify(studentForm),
+      loginURL = 'https://webkiosk.jiit.ac.in/CommonFiles/UserAction.jsp?' + studentFormData;
 
   // https request to login to the webkiosk
   request({
     method: 'GET',
     url: loginURL,
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Type': 'application/x-www-studentForm-urlencoded',
       'Connection': 'keep-alive'
     },
     jar: cookieJar
@@ -51,17 +52,45 @@ function webkioskLogin (enroll, password, institute, returnResponse, callback) {
 
 // function to get the overall attendance 
 function getOverallAttendance (returnResponse) {
+  var registeredSubjectsAttendance = {
+    "subjects": [] 
+  };
   // https get request to get the Attendance page to crawl
   request({
     method: 'GET',
     url: 'https://webkiosk.jiit.ac.in/StudentFiles/Academic/StudentAttendanceList.jsp',
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Type': 'application/x-www-studentForm-urlencoded',
       'Connection': 'keep-alive'
     },
     jar: cookieJar
   }, function (err, res, body) {
-      returnResponse.send(body);
+      // crawling the attendance data
+      var $ = cheerio.load(body);
+      var attendanceData = $('tbody tr');
+
+      attendanceData.each(function(i, data) {
+        var subjectAttendanceDetails = {};
+        $(data).children().each(function (i, childrenData) {
+          var subjectAttendanceData = $(childrenData).text();
+          switch(i) {
+            case 1: 
+              subjectAttendanceDetails.subjectName = subjectAttendanceData;
+
+            case 2:
+              subjectAttendanceDetails.subjectOverallAttendance = subjectAttendanceData;
+
+            case 3:
+              subjectAttendanceDetails.subjectLectureAttendance = subjectAttendanceData;
+
+            default: 
+              //do nothing
+          }
+
+        });
+        registeredSubjectsAttendance.subjects.push(subjectAttendanceDetails);
+      });
+      returnResponse.send(registeredSubjectsAttendance);
   });
 }
 
