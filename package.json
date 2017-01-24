@@ -1,7 +1,7 @@
 {
   "name": "webkiosk_api",
   "version": "1.0.0",
-  "description": "",
+  "description": "REST Api for getting attendance etc from the JIIT Webkiosk Web Application",
   "main": "webkiosk_request.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -9,8 +9,11 @@
   "author": "Himanshu Aggarwal",
   "license": "ISC",
   "dependencies": {
+    "body-parser": "^1.16.0",
     "cheerio": "^0.22.0",
+    "morgan": "^1.7.0",
     "querystring": "^0.2.0",
-    "request": "^2.79.0"
+    "request": "^2.79.0",
+    "restify": "^4.3.0"
   }
 }
