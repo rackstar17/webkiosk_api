@@ -1,1 +1,1 @@
-web: node webkiosk_api.js
+web: node webkiosk_request.js
