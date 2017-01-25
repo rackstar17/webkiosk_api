@@ -101,6 +101,6 @@ server.post('/attendance', function (req, res) {
 });
 
 // Server started at port 8080
-server.listen(8080, function () {
+server.listen(process.env.PORT || 8080, function () {
   console.log('listening at port 8080');
 });
