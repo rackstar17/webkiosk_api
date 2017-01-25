@@ -43,7 +43,7 @@ function webkioskLogin (enroll, password, institute, returnResponse, callback) {
     },
     jar: cookieJar
   }, function (err, res, body) {
-      if(!err & res.statusCode == 200) {
+      if(!err) {
         console.log('login successfull');
         callback(returnResponse);
       }
