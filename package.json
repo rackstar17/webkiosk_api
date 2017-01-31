@@ -12,6 +12,7 @@
     "body-parser": "^1.16.0",
     "cheerio": "^0.22.0",
     "morgan": "^1.7.0",
+    "q": "^1.4.1",
     "querystring": "^0.2.0",
     "request": "^2.79.0",
     "restify": "^4.3.0"

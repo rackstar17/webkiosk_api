@@ -4,6 +4,7 @@ var restify = require('restify');
 var bodyParser=require('body-parser');
 var morgan=require('morgan');
 var cheerio = require('cheerio');
+var Q = require('q');
 var server = restify.createServer();
 
 server.use(bodyParser.urlencoded({extended:true}));
@@ -25,13 +26,14 @@ var studentForm = {
 var cookieJar = request.jar();
 
 // function to login to webkiosk web app
-function webkioskLogin (enroll, password, institute, returnResponse, callback) {  
+function webkioskLogin (enroll, password, institute) {  
   studentForm.InstCode = institute;
   studentForm.MemberCode = enroll;
   studentForm.Password = password;
 
   var studentFormData = querystring.stringify(studentForm),
-      loginURL = 'https://webkiosk.jiit.ac.in/CommonFiles/UserAction.jsp?' + studentFormData;
+      loginURL = 'https://webkiosk.jiit.ac.in/CommonFiles/UserAction.jsp?' + studentFormData,
+      defer = new Q.defer();
 
   // https request to login to the webkiosk
   request({
@@ -45,9 +47,10 @@ function webkioskLogin (enroll, password, institute, returnResponse, callback) {
   }, function (err, res, body) {
       if(!err) {
         console.log('login successfull');
-        callback(returnResponse);
+        return defer.resolve({"success": true});
       }
-  })
+  });
+  return defer.promise;
 }
 
 // function to get the overall attendance 
@@ -97,7 +100,15 @@ function getOverallAttendance (returnResponse) {
 // API Routes
 
 server.post('/attendance', function (req, res) {
-  webkioskLogin(req.body.enroll, req.body.password, req.body.institute, res, getOverallAttendance);
+  if(cookieJar._jar.store.idx['webkiosk.jiit.ac.in']) {
+    getOverallAttendance(res);
+  }
+  else {
+    webkioskLogin(req.body.enroll, req.body.password, req.body.institute).then(function () {
+      console.log(cookieJar._jar.store.idx['webkiosk.jiit.ac.in']);
+      getOverallAttendance(res);
+    });
+  }
 });
 
 // Server started at port 8080
