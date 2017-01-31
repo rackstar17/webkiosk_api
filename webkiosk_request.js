@@ -26,7 +26,7 @@ var studentForm = {
 var cookieJar = request.jar();
 
 // function to login to webkiosk web app
-function webkioskLogin (enroll, password, institute) {  
+function webkioskLogin (enroll, password, institute, returnResponse) {  
   studentForm.InstCode = institute;
   studentForm.MemberCode = enroll;
   studentForm.Password = password;
@@ -47,7 +47,11 @@ function webkioskLogin (enroll, password, institute) {
   }, function (err, res, body) {
       if(!err) {
         console.log('login successfull');
-        return defer.resolve({"success": true});
+        // Return response for the login api
+        if(returnResponse) {
+          returnResponse.send({"status": "success"});
+        }
+        return defer.resolve(true);
       }
   });
   return defer.promise;
@@ -98,6 +102,10 @@ function getOverallAttendance (returnResponse) {
 }
 
 // API Routes
+
+server.post('/login', function (req, res) {
+  webkioskLogin(req.body.enroll, req.body.password, req.body.institute, res);
+});
 
 server.post('/attendance', function (req, res) {
   if(cookieJar._jar.store.idx['webkiosk.jiit.ac.in']) {
