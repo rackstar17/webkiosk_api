@@ -47,11 +47,30 @@ function webkioskLogin (enroll, password, institute, returnResponse) {
   }, function (err, res, body) {
       if(!err) {
         console.log('login successfull');
+        var $ = cheerio.load(body);
+        var loginData = $('b').text();
+        var wrongEnrollment = loginData.includes('Please give the correct Institute name and Enrollment No');
+        var wrongPassword = loginData.includes('For assistance, please contact to System Administrator');
+        
         // Return response for the login api
-        if(returnResponse) {
-          returnResponse.send({"status": "success"});
+        if(wrongEnrollment) {
+          if(returnResponse) {
+            returnResponse.send({"status": "fail", "message": "Invalid Enrollment Number"});
+          }
+          return defer.reject({"status": "fail", "message": "Invalid Enrollment Number"});
         }
-        return defer.resolve(true);
+        else if(wrongPassword) {
+          if(returnResponse) {
+            returnResponse.send({"status": "fail", "message": "Invalid Password"});
+          }
+          return defer.reject({"status": "fail", "message": "Invalid Password"});
+        }
+        else {
+          if(returnResponse) {
+            returnResponse.send({"status": "success", "message": "Login successfull"});
+          }
+          return defer.resolve(true);
+        }
       }
   });
   return defer.promise;
@@ -108,15 +127,11 @@ server.post('/login', function (req, res) {
 });
 
 server.post('/attendance', function (req, res) {
-  if(cookieJar._jar.store.idx['webkiosk.jiit.ac.in']) {
+  webkioskLogin(req.body.enroll, req.body.password, req.body.institute).then(function () {
     getOverallAttendance(res);
-  }
-  else {
-    webkioskLogin(req.body.enroll, req.body.password, req.body.institute).then(function () {
-      console.log(cookieJar._jar.store.idx['webkiosk.jiit.ac.in']);
-      getOverallAttendance(res);
-    });
-  }
+  }, function (err) {
+    res.send(err);
+  });
 });
 
 // Server started at port 8080
