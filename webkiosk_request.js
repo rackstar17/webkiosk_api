@@ -40,8 +40,7 @@ function webkioskLogin (enroll, password, institute, returnResponse) {
     method: 'GET',
     url: loginURL,
     headers: {
-      'Content-Type': 'application/x-www-studentForm-urlencoded',
-      'Connection': 'keep-alive'
+      'Content-Type': 'application/x-www-studentForm-urlencoded'
     },
     jar: cookieJar
   }, function (err, res, body) {
@@ -77,7 +76,7 @@ function webkioskLogin (enroll, password, institute, returnResponse) {
 }
 
 // function to get the overall attendance 
-function getOverallAttendance (returnResponse) {
+function getOverallAttendance (returnResponse, subjectName, year) {
   var registeredSubjectsAttendance = {
     "subjects": [] 
   };
@@ -86,8 +85,7 @@ function getOverallAttendance (returnResponse) {
     method: 'GET',
     url: 'https://webkiosk.jiit.ac.in/StudentFiles/Academic/StudentAttendanceList.jsp',
     headers: {
-      'Content-Type': 'application/x-www-studentForm-urlencoded',
-      'Connection': 'keep-alive'
+      'Content-Type': 'application/x-www-studentForm-urlencoded'
     },
     jar: cookieJar
   }, function (err, res, body) {
@@ -114,9 +112,69 @@ function getOverallAttendance (returnResponse) {
           }
 
         });
-        registeredSubjectsAttendance.subjects.push(subjectAttendanceDetails);
+        if(!subjectAttendanceDetails.subjectName.includes('PROJECT PART')) {
+          registeredSubjectsAttendance.subjects.push(subjectAttendanceDetails);
+        }
       });
-      returnResponse.send(registeredSubjectsAttendance);
+
+      // if there exists a subject whose detailed attendance has to be returned
+      if(subjectName && year) {
+        var detailedAttendanceLinks = $('tbody tr td a')
+        var detailedAttendanceSubjectIndex = 0;
+
+        for(var subject = 0; subject < registeredSubjectsAttendance.subjects.length; subject++) {
+          if(registeredSubjectsAttendance.subjects[subject].subjectName.includes(subjectName)) {
+            detailedAttendanceSubjectIndex = subject;
+            break;
+          }
+        }
+        request({
+          method: 'GET',
+          url: 'https://webkiosk.jiit.ac.in/StudentFiles/Academic/' +
+            $(detailedAttendanceLinks[2*detailedAttendanceSubjectIndex + 1]).attr('href'),
+          headers: {
+            'Content-Type': 'application/x-www-studentForm-urlencoded'
+          },
+          jar: cookieJar
+        }, function (err, res, body) {
+          // Crawl the detailed attendance table and return json response
+          var $ = cheerio.load(body);
+          var detailedAttendanceBody = $('.sort-table tbody tr td');
+          var querySubjectDetailedAttendace = {
+            "data": []
+          };
+          var crawlData = {};
+          detailedAttendanceBody.each(function (i) {
+            var detailedData = $(this).text();
+            var modulo;
+
+            if(year == '4' || year == '2') {
+              modulo = (i+1)%5;
+            }
+            if(year == '3') {
+              modulo = (i+1)%6;
+            }
+
+            if(modulo == 0) {
+              querySubjectDetailedAttendace.data.unshift(crawlData);
+              crawlData = {};
+            }
+            if(modulo == 2) {
+              crawlData.dateTime = detailedData;
+            }
+            if(modulo == 3) {
+              crawlData.profName = detailedData;
+            }
+            if(modulo == 4) {
+              crawlData.attendanceStatus = detailedData;
+            }
+          });
+          returnResponse.send(querySubjectDetailedAttendace);
+        });
+      }
+      else {
+        returnResponse.send(registeredSubjectsAttendance);
+      }
   });
 }
 
@@ -133,6 +191,14 @@ server.post('/attendance', function (req, res) {
     res.send(err);
   });
 });
+
+server.post('/detailedattendance', function (req, res) {
+  webkioskLogin(req.body.enroll, req.body.password, req.body.institute).then(function () {
+    getOverallAttendance(res, req.body.subjectName, req.body.year);
+  }, function (err) {
+    res.send(err);
+  });
+})
 
 // Server started at port 8080
 server.listen(process.env.PORT || 8080, function () {
