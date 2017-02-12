@@ -98,7 +98,7 @@ function getOverallAttendance (returnResponse, subjectName, year) {
         $(data).children().each(function (i, childrenData) {
           var subjectAttendanceData = $(childrenData).text();
           switch(i) {
-            case 1: 
+            case 1:
               subjectAttendanceDetails.subjectName = subjectAttendanceData;
 
             case 2:
@@ -107,12 +107,12 @@ function getOverallAttendance (returnResponse, subjectName, year) {
             case 3:
               subjectAttendanceDetails.subjectLectureAttendance = subjectAttendanceData;
 
-            default: 
+            default:
               //do nothing
           }
 
         });
-        if(!subjectAttendanceDetails.subjectName.includes('PROJECT PART')) {
+        if(!subjectAttendanceDetails.subjectName.includes('PROJECT')) {
           registeredSubjectsAttendance.subjects.push(subjectAttendanceDetails);
         }
       });
@@ -178,6 +178,37 @@ function getOverallAttendance (returnResponse, subjectName, year) {
   });
 }
 
+// function to get the datesheet of the latest exam about to happen
+function getDatesheet(returnResponse) {
+  request({
+    method: 'GET',
+    url: 'https://webkiosk.jiit.ac.in/StudentFiles/Exam/StudViewDateSheet.jsp',
+    headers: {
+      'Content-Type': 'application/x-www-studentForm-urlencoded'
+    },
+    jar: cookieJar
+  }, function (err, res, body) {
+      var $ = cheerio.load(body);
+      var datesheetData = $('.sort-table tr');
+      var datesheet = {
+        "subjects": []
+      };
+      datesheetData.each(function (i, datesheetRow) {
+        if(i != 0) {
+          var subjectDates = {}
+          subjectDates.subjectName = $(datesheetRow).children().eq(3).text();
+          // if the subject row has no date ie- subject exam lies on the same date
+          subjectDates.date = $(datesheetRow).children().eq(1).text() != '\u00a0' // this special character stands for &nbsp
+            ? $(datesheetRow).children().eq(1).text() : datesheet.subjects[datesheet.subjects.length - 1].date; 
+
+          subjectDates.time = $(datesheetRow).children().eq(2).text();
+          datesheet.subjects.push(subjectDates);
+        }
+      });
+      returnResponse.send(datesheet);
+  });
+}
+
 // API Routes
 
 server.post('/login', function (req, res) {
@@ -198,7 +229,15 @@ server.post('/detailedattendance', function (req, res) {
   }, function (err) {
     res.send(err);
   });
-})
+});
+
+server.post('/datesheet', function (req, res) {
+  webkioskLogin(req.body.enroll, req.body.password, req.body.institute).then(function () {
+    getDatesheet(res);
+  }, function (err) {
+    res.send(err);
+  });
+});
 
 // Server started at port 8080
 server.listen(process.env.PORT || 8080, function () {
