@@ -76,7 +76,7 @@ function webkioskLogin (enroll, password, institute, returnResponse) {
 }
 
 // function to get the overall attendance 
-function getOverallAttendance (returnResponse, subjectName, year) {
+function getOverallAttendance (returnResponse, subjectName) {
   var registeredSubjectsAttendance = {
     "subjects": [] 
   };
@@ -118,7 +118,7 @@ function getOverallAttendance (returnResponse, subjectName, year) {
       });
 
       // if there exists a subject whose detailed attendance has to be returned
-      if(subjectName && year) {
+      if(subjectName) {
         var detailedAttendanceLinks = $('tbody tr td a')
         var detailedAttendanceSubjectIndex = 0;
 
@@ -139,35 +139,16 @@ function getOverallAttendance (returnResponse, subjectName, year) {
         }, function (err, res, body) {
           // Crawl the detailed attendance table and return json response
           var $ = cheerio.load(body);
-          var detailedAttendanceBody = $('.sort-table tbody tr td');
+          var detailedAttendanceBody = $('.sort-table tbody tr');
           var querySubjectDetailedAttendace = {
             "data": []
           };
-          var crawlData = {};
-          detailedAttendanceBody.each(function (i) {
-            var detailedData = $(this).text();
-            var modulo;
-
-            if(year == '4' || year == '2') {
-              modulo = (i+1)%5;
-            }
-            if(year == '3') {
-              modulo = (i+1)%6;
-            }
-
-            if(modulo == 0) {
-              querySubjectDetailedAttendace.data.unshift(crawlData);
-              crawlData = {};
-            }
-            if(modulo == 2) {
-              crawlData.dateTime = detailedData;
-            }
-            if(modulo == 3) {
-              crawlData.profName = detailedData;
-            }
-            if(modulo == 4) {
-              crawlData.attendanceStatus = detailedData;
-            }
+          detailedAttendanceBody.each(function (i, detailedAttendanceRow) {
+            var crawlData = {};
+            crawlData.dateTime = $(detailedAttendanceRow).children().eq(1).text();
+            crawlData.profName = $(detailedAttendanceRow).children().eq(2).text();
+            crawlData.attendanceStatus = $(detailedAttendanceRow).children().eq(3).text();
+            querySubjectDetailedAttendace.data.unshift(crawlData);
           });
           returnResponse.send(querySubjectDetailedAttendace);
         });
@@ -225,7 +206,7 @@ server.post('/attendance', function (req, res) {
 
 server.post('/detailedattendance', function (req, res) {
   webkioskLogin(req.body.enroll, req.body.password, req.body.institute).then(function () {
-    getOverallAttendance(res, req.body.subjectName, req.body.year);
+    getOverallAttendance(res, req.body.subjectName);
   }, function (err) {
     res.send(err);
   });
